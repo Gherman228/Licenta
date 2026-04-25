@@ -4,9 +4,11 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -16,15 +18,22 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Metoda de citire
+        RecyclerView recyclerView = findViewById(R.id.rvApps);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        //Metoda de citire
+
         List<AppInfo> installedApps = getInstalledApps();
+        AppAdapter adapter = new AppAdapter(installedApps);
+        recyclerView.setAdapter(adapter);
+
     }
 
     private List<AppInfo> getInstalledApps() {
         List<AppInfo> appList = new ArrayList<>();
         PackageManager pm = getPackageManager();
 
-        // Aplicatiile instalate
+        // Aplicati instalate
         List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
 
         for (ApplicationInfo app : packages) {
