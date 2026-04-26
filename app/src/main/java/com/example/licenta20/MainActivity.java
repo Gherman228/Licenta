@@ -1,18 +1,14 @@
 package com.example.licenta20;
 
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
-import com.example.licenta20.data.AppConfig;
-import com.example.licenta20.data.AppDatabase;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import androidx.fragment.app.Fragment;
+import com.example.licenta20.ui.home.HomeFragment;
+import com.example.licenta20.ui.setups.SetupsFragment;
+import com.example.licenta20.ui.sleep.SleepFragment;
+import com.example.licenta20.ui.ai.AIFragment;
+import com.example.licenta20.ui.profile.ProfileFragment;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,48 +17,36 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        RecyclerView recyclerView = findViewById(R.id.rvApps);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
 
-        // 1. Inițializăm baza de date
-        AppDatabase db = AppDatabase.getInstance(this);
-
-        // 2. Luăm lista de aplicații (care acum verifică și baza de date)
-        List<AppInfo> installedApps = getInstalledApps(db);
-
-        // 3. Pasăm baza de date și la Adapter ca să poată salva click-urile
-        AppAdapter adapter = new AppAdapter(installedApps, db);
-        recyclerView.setAdapter(adapter);
-    }
-
-    private List<AppInfo> getInstalledApps(AppDatabase db) {
-        List<AppInfo> appList = new ArrayList<>();
-        PackageManager pm = getPackageManager();
-
-
-        List<AppConfig> savedConfigs = db.appDao().getAllConfigs();
-        List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
-
-        for (ApplicationInfo app : packages) {
-            if (pm.getLaunchIntentForPackage(app.packageName) != null) {
-
-               //Nume+iconita
-                String name = app.loadLabel(pm).toString();
-                android.graphics.drawable.Drawable icon = app.loadIcon(pm);
-
-                AppInfo appInfo = new AppInfo(name, app.packageName, icon);
-
-                for (AppConfig config : savedConfigs) {
-                    if (config.getPackageName().equals(app.packageName)) {
-                        appInfo.setSelected(config.isBlocked());
-                        break;
-                    }
-                }
-                appList.add(appInfo);
-            }
+        // 1. Setăm ecranul de pornire să fie HomeFragment
+        if (savedInstanceState == null) {
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new HomeFragment()).commit();
         }
 
-        Collections.sort(appList, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        return appList;
+        // 2. Logica pentru schimbarea fragmentelor la click pe meniu
+        bottomNav.setOnItemSelectedListener(item -> {
+            Fragment selectedFragment = null;
+            int id = item.getItemId();
+
+            if (id == R.id.nav_home) {
+                selectedFragment = new HomeFragment();
+            } else if (id == R.id.nav_setups) {
+                selectedFragment = new SetupsFragment();
+            } else if (id == R.id.nav_sleep) {
+                selectedFragment = new SleepFragment();
+            } else if (id == R.id.nav_ai) {
+                selectedFragment = new AIFragment();
+            } else if (id == R.id.nav_profile) {
+                selectedFragment = new ProfileFragment();
+            }
+
+            if (selectedFragment != null) {
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, selectedFragment).commit();
+            }
+            return true;
+        });
     }
 }
