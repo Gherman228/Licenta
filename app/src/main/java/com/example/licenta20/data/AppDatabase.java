@@ -12,13 +12,13 @@ public abstract class AppDatabase extends RoomDatabase {
 
     public abstract AppDao appDao();
 
-    // Singleton pattern - să avem o singură instanță a bazei de date în toată aplicația
+    // Singleton pattern
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
             instance = Room.databaseBuilder(context.getApplicationContext(),
                             AppDatabase.class, "kairos_database")
                     .fallbackToDestructiveMigration()
-                    .allowMainThreadQueries() // DOAR pentru teste, vom muta pe fundal mai târziu
+                    .allowMainThreadQueries() // test
                     .build();
         }
         return instance;

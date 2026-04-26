@@ -10,7 +10,7 @@ public class AppConfig {
     private String packageName; // CNP-ul aplicației
 
     private boolean isBlocked;
-    private int dailyLimitMinutes; // Pentru setările de care ziceai
+    private int dailyLimitMinutes;
     private int currentStreak;     // Pentru streak-uri
 
     public AppConfig(String packageName, boolean isBlocked) {

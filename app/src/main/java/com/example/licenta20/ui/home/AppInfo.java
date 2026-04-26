@@ -1,4 +1,4 @@
-package com.example.licenta20;
+package com.example.licenta20.ui.home;
 
 
 import android.graphics.drawable.Drawable;

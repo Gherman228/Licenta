@@ -1,4 +1,4 @@
-package com.example.licenta20;
+package com.example.licenta20.ui.home;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,6 +9,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.licenta20.R;
 import com.example.licenta20.data.AppConfig;
 import com.example.licenta20.data.AppDatabase;
 
