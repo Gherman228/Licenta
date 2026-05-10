@@ -16,4 +16,7 @@ import java.util.List;
 
     @Query("SELECT * FROM app_configs WHERE packageName = :pkgName")
     AppConfig getConfigForApp(String pkgName);
+
+    @Query("SELECT * FROM app_configs WHERE packageName = :packageName LIMIT 1")
+    AppConfig getConfigByPackage(String packageName);
 }
