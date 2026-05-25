@@ -1,6 +1,7 @@
 package com.example.licenta20.service;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.SharedPreferences;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 
@@ -35,19 +36,29 @@ public class AppBlockerService extends AccessibilityService {
     }
 
     private void checkAndBlockApp(String packageName) {
+        // 1. Citim starea butonului de START/STOP salvată de HomeFragment
+        SharedPreferences prefs = getSharedPreferences("KairosPrefs", MODE_PRIVATE);
+        boolean isFocusActive = prefs.getBoolean("isFocusActive", false);
+
+        // 2. Dacă Focusul NU este activ, ne oprim aici (liber la navigare)
+        if (!isFocusActive) {
+            return;
+        }
+
+        // 3. Dacă Focusul ESTE activ, verificăm în baza de date dacă aplicația e bifată
         new Thread(() -> {
-            // Căutăm în DB dacă aplicația este marcată ca blocată
             AppConfig config = db.appDao().getConfigByPackage(packageName);
 
             if (config != null && config.isBlocked()) {
+
+                // --- AICI ESTE PARTEA NOUĂ ---
+                // Salvăm interceptarea în baza de date! (+1 la numărătoare)
+                db.appDao().incrementInterceptCount(packageName);
+                Log.d("AppBlocker", "Interceptat! +1 pentru: " + packageName);
+                // -----------------------------
+
                 // Dacă e blocată, trimitem utilizatorul la "Acasă" (Home)
                 performGlobalAction(GLOBAL_ACTION_HOME);
-
-                // Opțional: Poți afișa un mesaj (pe thread-ul principal)
-                /*
-                new Handler(Looper.getMainLooper()).post(() ->
-                    Toast.makeText(getApplicationContext(), "Kairos: Această aplicație este blocată!", Toast.LENGTH_SHORT).show());
-                */
             }
         }).start();
     }

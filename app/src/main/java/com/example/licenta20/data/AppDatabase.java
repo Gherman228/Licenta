@@ -5,7 +5,8 @@ import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
-@Database(entities = {AppConfig.class}, version = 1)
+// AICI AM MODIFICAT version = 2
+@Database(entities = {AppConfig.class}, version = 2)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static AppDatabase instance;
@@ -18,7 +19,7 @@ public abstract class AppDatabase extends RoomDatabase {
             instance = Room.databaseBuilder(context.getApplicationContext(),
                             AppDatabase.class, "kairos_database")
                     .fallbackToDestructiveMigration()
-                    .allowMainThreadQueries() // test
+                    .allowMainThreadQueries() // Pentru testare e OK momentan
                     .build();
         }
         return instance;
