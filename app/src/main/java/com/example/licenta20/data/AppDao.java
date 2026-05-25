@@ -19,4 +19,7 @@ import java.util.List;
 
     @Query("SELECT * FROM app_configs WHERE packageName = :packageName LIMIT 1")
     AppConfig getConfigByPackage(String packageName);
+
+    @Query("UPDATE app_configs SET interceptCount = interceptCount + 1 WHERE packageName = :packageName")
+    void incrementInterceptCount(String packageName);
 }
