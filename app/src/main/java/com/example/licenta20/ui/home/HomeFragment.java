@@ -26,9 +26,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.licenta20.R;
 import com.example.licenta20.data.AppConfig;
 import com.example.licenta20.data.AppDatabase;
+import com.example.licenta20.data.DailyStat;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -86,7 +89,7 @@ public class HomeFragment extends Fragment {
         updateButtonUI(false);
         progressBar.setProgress(100);
 
-        // Inițializăm Datele pe Dashboard
+        // Inițializăm Datele pe Dashboard (CITESTE DIN DB)
         populateStats();
 
         // Configuram animația de puls
@@ -144,27 +147,76 @@ public class HomeFragment extends Fragment {
         return view;
     }
 
-    // --- METODE NOI ---
+    // --- METODE MATEMATICE ȘI DB ---
 
     private void populateStats() {
-        tvFocusScore.setText("80%");
-
-        // Preluăm numărul TOTAL de distragere evitate din DB
         new Thread(() -> {
+            // 1. Luăm distragerile totale din setările aplicațiilor
             List<AppConfig> allConfigs = db.appDao().getAllConfigs();
             int totalIntercepts = 0;
             for (AppConfig config : allConfigs) {
                 totalIntercepts += config.getInterceptCount();
             }
+
+            // 2. Luăm datele de azi din noul tabel DailyStat
+            String today = getTodayDate();
+            DailyStat todayStat = db.dailyStatDao().getStatForDate(today);
+
             final String distractionsText = String.valueOf(totalIntercepts);
+            final String focusScoreText = (todayStat != null) ? todayStat.getFocusScore() + "%" : "100%";
+
+            // Transformăm milisecundele statului de azi în ore și minute
+            long totalTimeToday = (todayStat != null) ? todayStat.getTotalFocusTime() : 0;
+            int hours = (int) (totalTimeToday / (1000 * 60 * 60));
+            int mins = (int) ((totalTimeToday / (1000 * 60)) % 60);
+
+            final String savedTimeText;
+            if (hours > 0) {
+                savedTimeText = hours + "h " + mins + "m";
+            } else {
+                savedTimeText = mins + "m";
+            }
+
+            // 3. Afișăm pe ecran
             if (isAdded()) {
                 requireActivity().runOnUiThread(() -> {
                     tvDistractionsScore.setText(distractionsText);
-                    tvSavedTime.setText("2h");
+                    tvFocusScore.setText(focusScoreText);
+                    tvSavedTime.setText(savedTimeText);
                 });
             }
         }).start();
     }
+
+    private String getTodayDate() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        return sdf.format(new Date());
+    }
+
+    private void saveSessionToDatabase(long timeFocusedInMillis) {
+        new Thread(() -> {
+            String today = getTodayDate();
+            DailyStat todayStat = db.dailyStatDao().getStatForDate(today);
+
+            if (todayStat == null) {
+                // E prima sesiune de azi, creăm un rând nou cu focusScore inițial 100
+                todayStat = new DailyStat(today, timeFocusedInMillis, 0, 100);
+            } else {
+                // Adunăm timpul de acum la timpul total de azi
+                long newTotalTime = todayStat.getTotalFocusTime() + timeFocusedInMillis;
+                todayStat.setTotalFocusTime(newTotalTime);
+            }
+
+            db.dailyStatDao().insertOrUpdate(todayStat);
+
+            // După ce am salvat, reactualizăm interfața cu datele noi
+            if (isAdded()) {
+                requireActivity().runOnUiThread(this::populateStats);
+            }
+        }).start();
+    }
+
+    // --- METODE UI ȘI TIMER ---
 
     private void setTime(int hours, int minutes, Button selectedPill) {
         selectedTimeInMillis = ((hours * 60L) + minutes) * 60 * 1000;
@@ -221,6 +273,10 @@ public class HomeFragment extends Fragment {
                 prefs.edit().putBoolean("isFocusActive", false).apply();
                 updateButtonUI(false);
                 resetIdleUI();
+
+                // SALVĂM TIMPUL COMPLET!
+                saveSessionToDatabase(initialSelectedTimeMax);
+
                 Toast.makeText(getContext(), "Bravo! Sesiunea de focus s-a terminat.", Toast.LENGTH_LONG).show();
             }
         }.start();
@@ -231,6 +287,12 @@ public class HomeFragment extends Fragment {
             countDownTimer.cancel();
         }
         resetIdleUI();
+
+        // SALVĂM DOAR TIMPUL EFECTUAT PÂNĂ LA OPRIRE
+        long timeFocused = initialSelectedTimeMax - currentMillisLeft;
+        if (timeFocused > 0) {
+            saveSessionToDatabase(timeFocused);
+        }
     }
 
     private void updateTimerText(long millis) {

@@ -5,13 +5,14 @@ import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
-// AICI AM MODIFICAT version = 2
-@Database(entities = {AppConfig.class}, version = 2)
+// AICI AM MODIFICAT: am adăugat DailyStat.class și version = 3
+@Database(entities = {AppConfig.class, DailyStat.class}, version = 3)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static AppDatabase instance;
 
     public abstract AppDao appDao();
+    public abstract DailyStatDao dailyStatDao(); // Am adăugat DAO-ul nou
 
     // Singleton pattern
     public static synchronized AppDatabase getInstance(Context context) {
@@ -19,7 +20,7 @@ public abstract class AppDatabase extends RoomDatabase {
             instance = Room.databaseBuilder(context.getApplicationContext(),
                             AppDatabase.class, "kairos_database")
                     .fallbackToDestructiveMigration()
-                    .allowMainThreadQueries() // Pentru testare e OK momentan
+                    .allowMainThreadQueries() // Păstrat așa cum îl aveai tu pentru testare
                     .build();
         }
         return instance;
