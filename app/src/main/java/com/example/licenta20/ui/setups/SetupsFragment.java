@@ -1,66 +1,63 @@
 package com.example.licenta20.ui.setups;
 
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.licenta20.R;
+import com.example.licenta20.data.AppDatabase;
+import com.example.licenta20.data.BlockSetup;
+import com.example.licenta20.ui.adaptor.BlockAdapter;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link SetupsFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
 public class SetupsFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private AppDatabase db;
+    private BlockAdapter adapter;
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
-    public SetupsFragment() {
-        // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment SetupsFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static SetupsFragment newInstance(String param1, String param2) {
-        SetupsFragment fragment = new SetupsFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
+    public SetupsFragment() {}
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_setups, container, false);
+
+        // 1. Inițializăm baza de date și Adapterul
+        db = AppDatabase.getInstance(requireContext());
+        adapter = new BlockAdapter();
+
+        // 2. Setăm RecyclerView-ul
+        RecyclerView recyclerView = view.findViewById(R.id.rvSetups);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        recyclerView.setAdapter(adapter);
+
+        // 3. (Opțional) Inserăm date de test ca să vedem UI-ul
+        insertDummyDataIfNeeded();
+
+        // 4. Observăm baza de date: cerem doar rutinele de tip FOCUS
+        db.blockSetupDao().getBlocksByCategory("FOCUS").observe(getViewLifecycleOwner(), blocks -> {
+            // Când baza de date se schimbă, lista de pe ecran se actualizează INSTANT!
+            adapter.setBlocks(blocks);
+        });
+
+        return view;
     }
 
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_setups, container, false);
+    // Funcție temporară pentru a vedea cum arată design-ul tău
+    private void insertDummyDataIfNeeded() {
+        new Thread(() -> {
+            // Dacă nu avem niciun block de Focus, le creăm noi acum
+            if (db.blockSetupDao().getAllBlocks().getValue() == null || db.blockSetupDao().getAllBlocks().getValue().isEmpty()) {
+                BlockSetup b1 = new BlockSetup("Laser Focus", "Your daily focus hour", "2:00 PM - 3:00 PM", "Weekdays", "FOCUS", 0);
+                BlockSetup b2 = new BlockSetup("Morning Deep Work", "Start the day strong without distractions", "8:00 AM - 11:00 AM", "Daily", "FOCUS", 0);
+
+                db.blockSetupDao().insert(b1);
+                db.blockSetupDao().insert(b2);
+            }
+        }).start();
     }
 }
