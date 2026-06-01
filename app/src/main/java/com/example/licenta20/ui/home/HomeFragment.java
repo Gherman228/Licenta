@@ -27,6 +27,7 @@ import com.example.licenta20.R;
 import com.example.licenta20.data.AppConfig;
 import com.example.licenta20.data.AppDatabase;
 import com.example.licenta20.data.DailyStat;
+import com.example.licenta20.ui.adaptor.CardAdapter;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.text.SimpleDateFormat;
@@ -39,106 +40,105 @@ public class HomeFragment extends Fragment {
 
     private AppDatabase db;
     private Button btnStartFocus;
-    private Button btnEditBlocklist;
+    private View btnEditBlocklist;
 
-    // Variabile Dashboard
     private TextView tvFocusScore, tvSavedTime, tvDistractionsScore;
     private TextView tvTimerString;
     private ProgressBar progressBar;
-    private View viewFocusPulse; // Nucleul central
-    private View controlPanel; // Rândul cu pastile de timp
+    private View viewFocusPulse;
 
-    // Variabile Timp (Butoane Pastile)
-    private Button btn15, btn25, btn30, btn60;
+    private int selectedTimeMinutes = 30;
+    private static final int INCREMENT = 5;
+    private static final int MIN_TIME = 5;
 
-    // Logica Timer
+    private TextView tvTimerSelection;
+    private Button btnMinusTime;
+    private Button btnPlusTime;
+    private View layoutTimerControls;
+
     private CountDownTimer countDownTimer;
-    private long selectedTimeInMillis = 25 * 60 * 1000; // Valoare default (25m)
+    private long selectedTimeInMillis;
     private long currentMillisLeft;
     private long initialSelectedTimeMax;
 
-    // Animație pentru nucleu
     private AlphaAnimation pulseAnimation;
+
+    private RecyclerView rvSetups;
+    private RecyclerView rvSoundscapes;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
-        // Legăm componentele Dashboard
         tvFocusScore = view.findViewById(R.id.tvFocusScore);
         tvSavedTime = view.findViewById(R.id.tvSavedTime);
         tvDistractionsScore = view.findViewById(R.id.tvDistractionsScore);
         tvTimerString = view.findViewById(R.id.tvTimerString);
         progressBar = view.findViewById(R.id.progressBar);
         viewFocusPulse = view.findViewById(R.id.viewFocusPulse);
-        controlPanel = view.findViewById(R.id.controlPanel);
-        btnStartFocus = view.findViewById(R.id.btnStartFocus);
-        btnEditBlocklist = view.findViewById(R.id.btnEditBlocklist);
 
-        // Legăm Butoanele Pastile de Timp
-        btn15 = view.findViewById(R.id.btnPreset15);
-        btn25 = view.findViewById(R.id.btnPreset25);
-        btn30 = view.findViewById(R.id.btnPreset30);
-        btn60 = view.findViewById(R.id.btnPreset60);
+        btnStartFocus = view.findViewById(R.id.btnStartTimer);
+        btnEditBlocklist = view.findViewById(R.id.btnBlockApps);
+
+        tvTimerSelection = view.findViewById(R.id.tvTimerSelection);
+        btnMinusTime = view.findViewById(R.id.btnMinusTime);
+        btnPlusTime = view.findViewById(R.id.btnPlusTime);
+        layoutTimerControls = view.findViewById(R.id.layoutTimerControls);
+
+        rvSetups = view.findViewById(R.id.rvSetups);
+        rvSoundscapes = view.findViewById(R.id.rvSoundscapes);
 
         db = AppDatabase.getInstance(requireContext());
         SharedPreferences prefs = requireContext().getSharedPreferences("KairosPrefs", Context.MODE_PRIVATE);
 
-        // Resetăm starea Focusului la pornire
         prefs.edit().putBoolean("isFocusActive", false).apply();
         updateButtonUI(false);
         progressBar.setProgress(100);
 
-        // Inițializăm Datele pe Dashboard (CITESTE DIN DB)
         populateStats();
-
-        // Configuram animația de puls
         setupPulseAnimation();
+        updateTimerSelectionDisplay();
+        setupHorizontalLists();
 
-        // Configurare logică Pastile de Timp
-        btn15.setOnClickListener(v -> setTime(0, 15, btn15));
-        btn25.setOnClickListener(v -> setTime(0, 25, btn25));
-        btn30.setOnClickListener(v -> setTime(0, 30, btn30));
-        btn60.setOnClickListener(v -> setTime(1, 0, btn60));
-
-        // Pornește pastila de 25 default
-        selectPill(btn25);
-
-        // Logica pentru butonul de Aplicații (Meniul de jos)
-        btnEditBlocklist.setOnClickListener(v -> {
-            openAppsBottomSheet();
+        btnPlusTime.setOnClickListener(v -> {
+            selectedTimeMinutes += INCREMENT;
+            updateTimerSelectionDisplay();
         });
 
-        // Logica START/STOP
+        btnMinusTime.setOnClickListener(v -> {
+            if (selectedTimeMinutes > MIN_TIME) {
+                selectedTimeMinutes -= INCREMENT;
+                updateTimerSelectionDisplay();
+            }
+        });
+
+        btnEditBlocklist.setOnClickListener(v -> openAppsBottomSheet());
+
         btnStartFocus.setOnClickListener(v -> {
             boolean isFocusActive = prefs.getBoolean("isFocusActive", false);
 
             if (!isFocusActive) {
-                // PORNIM FOCUSUL
                 prefs.edit().putBoolean("isFocusActive", true).apply();
                 updateButtonUI(true);
 
+                selectedTimeInMillis = selectedTimeMinutes * 60 * 1000L;
                 initialSelectedTimeMax = selectedTimeInMillis;
                 currentMillisLeft = selectedTimeInMillis;
 
-                // Schimbăm UI-ul: Ascundem nucleul, controlul și butonul de aplicații
                 viewFocusPulse.setVisibility(View.GONE);
-                controlPanel.setVisibility(View.GONE);
-                btnEditBlocklist.setVisibility(View.GONE);
+                if(rvSetups != null) rvSetups.setVisibility(View.GONE);
+                if(rvSoundscapes != null) rvSoundscapes.setVisibility(View.GONE);
+                if(layoutTimerControls != null) layoutTimerControls.setVisibility(View.GONE);
+
                 tvTimerString.setVisibility(View.VISIBLE);
 
-                // Oprim animația de puls
                 if (pulseAnimation != null) pulseAnimation.cancel();
-
                 startTimer(prefs);
                 Toast.makeText(getContext(), "Focus activat! Rămâi concentrat.", Toast.LENGTH_SHORT).show();
             } else {
-                // OPRIM FOCUSUL MANUAL
                 prefs.edit().putBoolean("isFocusActive", false).apply();
                 updateButtonUI(false);
                 stopTimer();
-
-                // Schimbăm UI-ul la loc
                 resetIdleUI();
                 Toast.makeText(getContext(), "Focus oprit. Liber la navigare!", Toast.LENGTH_SHORT).show();
             }
@@ -147,25 +147,121 @@ public class HomeFragment extends Fragment {
         return view;
     }
 
-    // --- METODE MATEMATICE ȘI DB ---
+    private void updateTimerSelectionDisplay() {
+        if (selectedTimeMinutes < 60) {
+            tvTimerSelection.setText(selectedTimeMinutes + "m");
+        } else {
+            int hours = selectedTimeMinutes / 60;
+            int minutes = selectedTimeMinutes % 60;
+            if (minutes == 0) {
+                tvTimerSelection.setText(hours + "h");
+            } else {
+                tvTimerSelection.setText(hours + "h " + minutes + "m");
+            }
+        }
+    }
+
+    private void setupHorizontalLists() {
+        // 1. Configurăm lista For You (Setups)
+        if (rvSetups != null) {
+            rvSetups.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
+
+            List<CardItem> setupsList = new ArrayList<>();
+            setupsList.add(new CardItem("Laser Focus", "60m - Intense", "▶ Start", android.R.color.holo_blue_dark));
+            setupsList.add(new CardItem("Deep Work", "120m - Flow state", "▶ Start", android.R.color.holo_purple));
+            setupsList.add(new CardItem("Study Sprint", "45m - Exam prep", "▶ Start", android.R.color.holo_orange_dark));
+
+            CardAdapter setupsAdapter = new CardAdapter(setupsList, new CardAdapter.OnItemClickListener() {
+                @Override
+                public void onActionClick(CardItem item) {
+                    // Când apasă pe butonul mic "▶ Start"
+                    startPresetTimer(item.getTitle());
+                }
+
+                @Override
+                public void onCardClick(CardItem item) {
+                    // Când apasă pe card în general (îl putem lăsa gol sau pune un mesaj)
+                    Toast.makeText(getContext(), "Ai apăsat pe cardul " + item.getTitle(), Toast.LENGTH_SHORT).show();
+                }
+            });
+            rvSetups.setAdapter(setupsAdapter);
+        }
+
+        // 2. Configurăm lista Soundscapes
+        if (rvSoundscapes != null) {
+            rvSoundscapes.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
+
+            List<CardItem> sleepList = new ArrayList<>();
+            sleepList.add(new CardItem("City Rain", "Ambient Noise", "▶ Play", android.R.color.darker_gray));
+            sleepList.add(new CardItem("Ocean Waves", "Relaxing Water", "▶ Play", android.R.color.holo_blue_light));
+            sleepList.add(new CardItem("Forest Night", "Crickets & Owls", "▶ Play", android.R.color.holo_green_dark));
+
+            CardAdapter sleepAdapter = new CardAdapter(sleepList, new CardAdapter.OnItemClickListener() {
+                @Override
+                public void onActionClick(CardItem item) {
+                    // Când apasă pe butonul mic "▶ Play"
+                    Toast.makeText(getContext(), "Se pregătește sunetul: " + item.getTitle() + " 🎵", Toast.LENGTH_SHORT).show();
+                }
+
+                @Override
+                public void onCardClick(CardItem item) {
+                    // Când apasă pe cardul de sunet
+                    Toast.makeText(getContext(), "Setări pentru: " + item.getTitle(), Toast.LENGTH_SHORT).show();
+                }
+            });
+            rvSoundscapes.setAdapter(sleepAdapter);
+        }
+    }
+
+    // ==========================================
+    // METODA NOUĂ PENTRU LOGICA BUTOANELOR
+    // ==========================================
+    private void startPresetTimer(String presetName) {
+        int minutesToSet = 30; // Timpul default dacă nu găsește numele
+
+        // Mapăm fiecare nume de card cu durata lui specifică în minute
+        if (presetName.equals("Laser Focus")) {
+            minutesToSet = 60;
+        } else if (presetName.equals("Deep Work")) {
+            minutesToSet = 120;
+        } else if (presetName.equals("Study Sprint")) {
+            minutesToSet = 45;
+        }
+
+        // Verificăm dacă nu cumva timer-ul merge deja
+        SharedPreferences prefs = requireContext().getSharedPreferences("KairosPrefs", Context.MODE_PRIVATE);
+        boolean isFocusActive = prefs.getBoolean("isFocusActive", false);
+
+        if (isFocusActive) {
+            Toast.makeText(getContext(), "Oprește sesiunea curentă mai întâi!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 1. Setăm timpul intern pe baza cardului ales
+        selectedTimeMinutes = minutesToSet;
+        updateTimerSelectionDisplay();
+
+        // 2. MAGIC TRICK: Simulăm o apăsare pe butonul mare "Start Timer"
+        // ca să declanșăm toate animațiile, ascunderea listelor și baza de date!
+        btnStartFocus.performClick();
+
+        Toast.makeText(getContext(), "Sesiunea " + presetName + " a început!", Toast.LENGTH_SHORT).show();
+    }
 
     private void populateStats() {
         new Thread(() -> {
-            // 1. Luăm distragerile totale din setările aplicațiilor
             List<AppConfig> allConfigs = db.appDao().getAllConfigs();
             int totalIntercepts = 0;
             for (AppConfig config : allConfigs) {
                 totalIntercepts += config.getInterceptCount();
             }
 
-            // 2. Luăm datele de azi din noul tabel DailyStat
             String today = getTodayDate();
             DailyStat todayStat = db.dailyStatDao().getStatForDate(today);
 
             final String distractionsText = String.valueOf(totalIntercepts);
             final String focusScoreText = (todayStat != null) ? todayStat.getFocusScore() + "%" : "100%";
 
-            // Transformăm milisecundele statului de azi în ore și minute
             long totalTimeToday = (todayStat != null) ? todayStat.getTotalFocusTime() : 0;
             int hours = (int) (totalTimeToday / (1000 * 60 * 60));
             int mins = (int) ((totalTimeToday / (1000 * 60)) % 60);
@@ -177,7 +273,6 @@ public class HomeFragment extends Fragment {
                 savedTimeText = mins + "m";
             }
 
-            // 3. Afișăm pe ecran
             if (isAdded()) {
                 requireActivity().runOnUiThread(() -> {
                     tvDistractionsScore.setText(distractionsText);
@@ -199,43 +294,18 @@ public class HomeFragment extends Fragment {
             DailyStat todayStat = db.dailyStatDao().getStatForDate(today);
 
             if (todayStat == null) {
-                // E prima sesiune de azi, creăm un rând nou cu focusScore inițial 100
                 todayStat = new DailyStat(today, timeFocusedInMillis, 0, 100);
             } else {
-                // Adunăm timpul de acum la timpul total de azi
                 long newTotalTime = todayStat.getTotalFocusTime() + timeFocusedInMillis;
                 todayStat.setTotalFocusTime(newTotalTime);
             }
 
             db.dailyStatDao().insertOrUpdate(todayStat);
 
-            // După ce am salvat, reactualizăm interfața cu datele noi
             if (isAdded()) {
                 requireActivity().runOnUiThread(this::populateStats);
             }
         }).start();
-    }
-
-    // --- METODE UI ȘI TIMER ---
-
-    private void setTime(int hours, int minutes, Button selectedPill) {
-        selectedTimeInMillis = ((hours * 60L) + minutes) * 60 * 1000;
-        selectPill(selectedPill);
-    }
-
-    private void selectPill(Button pill) {
-        deselectPill(btn15);
-        deselectPill(btn25);
-        deselectPill(btn30);
-        deselectPill(btn60);
-
-        pill.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
-        pill.setTextColor(Color.BLACK);
-    }
-
-    private void deselectPill(Button pill) {
-        pill.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#222222")));
-        pill.setTextColor(Color.WHITE);
     }
 
     private void setupPulseAnimation() {
@@ -243,16 +313,15 @@ public class HomeFragment extends Fragment {
         pulseAnimation.setDuration(1500);
         pulseAnimation.setRepeatMode(Animation.REVERSE);
         pulseAnimation.setRepeatCount(Animation.INFINITE);
-
         viewFocusPulse.startAnimation(pulseAnimation);
     }
 
     private void resetIdleUI() {
         viewFocusPulse.setVisibility(View.VISIBLE);
-        controlPanel.setVisibility(View.VISIBLE);
-        btnEditBlocklist.setVisibility(View.VISIBLE);
+        if(rvSetups != null) rvSetups.setVisibility(View.VISIBLE);
+        if(rvSoundscapes != null) rvSoundscapes.setVisibility(View.VISIBLE);
         tvTimerString.setVisibility(View.GONE);
-
+        if(layoutTimerControls != null) layoutTimerControls.setVisibility(View.VISIBLE);
         progressBar.setProgress(100);
         setupPulseAnimation();
     }
@@ -263,43 +332,31 @@ public class HomeFragment extends Fragment {
             public void onTick(long millisUntilFinished) {
                 currentMillisLeft = millisUntilFinished;
                 updateTimerText(millisUntilFinished);
-
                 int progress = (int) (millisUntilFinished * 100 / initialSelectedTimeMax);
                 progressBar.setProgress(progress);
             }
-
             @Override
             public void onFinish() {
                 prefs.edit().putBoolean("isFocusActive", false).apply();
                 updateButtonUI(false);
                 resetIdleUI();
-
-                // SALVĂM TIMPUL COMPLET!
                 saveSessionToDatabase(initialSelectedTimeMax);
-
                 Toast.makeText(getContext(), "Bravo! Sesiunea de focus s-a terminat.", Toast.LENGTH_LONG).show();
             }
         }.start();
     }
 
     private void stopTimer() {
-        if (countDownTimer != null) {
-            countDownTimer.cancel();
-        }
+        if (countDownTimer != null) countDownTimer.cancel();
         resetIdleUI();
-
-        // SALVĂM DOAR TIMPUL EFECTUAT PÂNĂ LA OPRIRE
         long timeFocused = initialSelectedTimeMax - currentMillisLeft;
-        if (timeFocused > 0) {
-            saveSessionToDatabase(timeFocused);
-        }
+        if (timeFocused > 0) saveSessionToDatabase(timeFocused);
     }
 
     private void updateTimerText(long millis) {
         int hours = (int) (millis / 1000) / 3600;
         int minutes = (int) ((millis / 1000) % 3600) / 60;
         int seconds = (int) (millis / 1000) % 60;
-
         String timeLeftFormatted;
         if (hours > 0) {
             timeLeftFormatted = String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds);
@@ -311,13 +368,13 @@ public class HomeFragment extends Fragment {
 
     private void updateButtonUI(boolean isActive) {
         if (isActive) {
-            btnStartFocus.setText("STOP FOCUS");
-            btnStartFocus.setBackgroundTintList(ColorStateList.valueOf(Color.RED));
+            btnStartFocus.setText("STOP TIMER");
+            btnStartFocus.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E53935")));
             btnStartFocus.setTextColor(Color.WHITE);
         } else {
-            btnStartFocus.setText("START FOCUS");
-            btnStartFocus.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
-            btnStartFocus.setTextColor(Color.BLACK);
+            btnStartFocus.setText("▶ START TIMER");
+            btnStartFocus.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#3E456A")));
+            btnStartFocus.setTextColor(Color.WHITE);
         }
     }
 
@@ -325,31 +382,23 @@ public class HomeFragment extends Fragment {
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
         View sheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_apps, null);
         bottomSheetDialog.setContentView(sheetView);
-
         RecyclerView rvBottomSheetApps = sheetView.findViewById(R.id.rvBottomSheetApps);
         rvBottomSheetApps.setLayoutManager(new LinearLayoutManager(requireContext()));
 
         new Thread(() -> {
             PackageManager pm = requireContext().getPackageManager();
             List<AppConfig> savedConfigs = db.appDao().getAllConfigs();
-
             android.content.Intent mainIntent = new android.content.Intent(android.content.Intent.ACTION_MAIN, null);
             mainIntent.addCategory(android.content.Intent.CATEGORY_LAUNCHER);
             List<android.content.pm.ResolveInfo> resolvedInfos = pm.queryIntentActivities(mainIntent, 0);
-
             List<AppInfo> appList = new ArrayList<>();
 
             for (android.content.pm.ResolveInfo resolveInfo : resolvedInfos) {
                 String packageName = resolveInfo.activityInfo.packageName;
-
                 if (packageName.equals(requireContext().getPackageName())) continue;
-
                 boolean alreadyAdded = false;
                 for (AppInfo addedApp : appList) {
-                    if (addedApp.getPackageName().equals(packageName)) {
-                        alreadyAdded = true;
-                        break;
-                    }
+                    if (addedApp.getPackageName().equals(packageName)) { alreadyAdded = true; break; }
                 }
                 if (alreadyAdded) continue;
 
@@ -368,7 +417,6 @@ public class HomeFragment extends Fragment {
             }
 
             java.util.Collections.sort(appList, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-
             if (isAdded()) {
                 requireActivity().runOnUiThread(() -> {
                     AppAdapter adapter = new AppAdapter(appList, db);
@@ -378,5 +426,32 @@ public class HomeFragment extends Fragment {
         }).start();
 
         bottomSheetDialog.show();
+    }
+
+    // Această metodă se rulează AUTOMAT de fiecare dată când intri pe ecranul Home
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        SharedPreferences prefs = requireContext().getSharedPreferences("KairosPrefs", Context.MODE_PRIVATE);
+        boolean shouldAutoStart = prefs.getBoolean("autoStartTimer", false);
+
+        // Dacă am primit comanda din alt tab...
+        if (shouldAutoStart) {
+            // 1. Ștergem comanda ca să nu pornească la infinit de fiecare dată când intrăm
+            prefs.edit().putBoolean("autoStartTimer", false).apply();
+
+            // 2. Verificăm să nu fie deja un timer activ
+            if (!prefs.getBoolean("isFocusActive", false)) {
+
+                // 3. Setăm minutele primite din Setups
+                int mins = prefs.getInt("autoStartMinutes", 30);
+                selectedTimeMinutes = mins;
+                updateTimerSelectionDisplay();
+
+                // 4. Boom! Apăsăm automat butonul de Start!
+                btnStartFocus.performClick();
+            }
+        }
     }
 }
