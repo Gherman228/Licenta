@@ -5,14 +5,18 @@ import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
-// AICI AM MODIFICAT: am adăugat DailyStat.class și version = 3
-@Database(entities = {AppConfig.class, DailyStat.class}, version = 3)
+// 1. Am adăugat BlockSetup.class în lista de entități
+// 2. Am crescut versiunea la 4
+@Database(entities = {AppConfig.class, DailyStat.class, BlockSetup.class}, version = 4)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static AppDatabase instance;
 
     public abstract AppDao appDao();
-    public abstract DailyStatDao dailyStatDao(); // Am adăugat DAO-ul nou
+    public abstract DailyStatDao dailyStatDao();
+
+    // 3. Am adăugat legătura către noul DAO
+    public abstract BlockSetupDao blockSetupDao();
 
     // Singleton pattern
     public static synchronized AppDatabase getInstance(Context context) {

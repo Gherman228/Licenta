@@ -3,6 +3,8 @@ package com.example.licenta20;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+
+import com.example.licenta20.data.AppDatabase;
 import com.example.licenta20.ui.home.HomeFragment;
 import com.example.licenta20.ui.setups.SetupsFragment;
 import com.example.licenta20.ui.sleep.SleepFragment;
@@ -18,6 +20,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        // ȘTERGE această linie DUPĂ ce rulezi aplicația o dată!
+        AppDatabase.getInstance(this).blockSetupDao().deleteAll();
 
         // 1. Setăm ecranul de pornire să fie HomeFragment
         if (savedInstanceState == null) {
