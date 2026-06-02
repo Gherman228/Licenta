@@ -31,4 +31,7 @@ public interface BlockSetupDao {
 
     @Query("DELETE FROM block_setups")
     void deleteAll();
+    // Adaugă asta pentru citirea rapidă în fundal a orelor:
+    @androidx.room.Query("SELECT * FROM block_setups")
+    java.util.List<BlockSetup> getAllBlocksSync();
 }

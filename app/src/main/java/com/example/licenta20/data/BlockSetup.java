@@ -13,7 +13,8 @@ public class BlockSetup {
     private String description;    // ex: "Your daily focus hour"
     private String timeRange;      // ex: "2:00 PM - 3:00 PM"
     private String daysActive;     // ex: "Weekdays", "Weekends", "Daily"
-    private String category;       // ex: "FOCUS", "SLEEP", "HABIT"
+    private String category;
+    private boolean isPaused = false;// ex: "FOCUS", "SLEEP", "HABIT"
 
     // Un identificator pentru imaginea/gradientul de fundal (vom folosi asta la UI mai târziu)
     private int imageResourceId;
@@ -48,4 +49,14 @@ public class BlockSetup {
 
     public int getImageResourceId() { return imageResourceId; }
     public void setImageResourceId(int imageResourceId) { this.imageResourceId = imageResourceId; }
+
+    // ADĂUGĂ ASTA UNDEVA LÂNGĂ CELELALTE VARIABILE
+    private String blockedApps = "";
+
+    // ADĂUGĂ ASTEA JOS, LÂNGĂ CEILALȚI GETTERI/SETTERI
+    public String getBlockedApps() { return blockedApps; }
+    public void setBlockedApps(String blockedApps) { this.blockedApps = blockedApps; }
+
+    public boolean isPaused() { return isPaused; }
+    public void setPaused(boolean paused) { isPaused = paused; }
 }
