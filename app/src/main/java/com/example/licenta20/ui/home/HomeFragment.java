@@ -435,23 +435,26 @@ public class HomeFragment extends Fragment {
 
         SharedPreferences prefs = requireContext().getSharedPreferences("KairosPrefs", Context.MODE_PRIVATE);
         boolean shouldAutoStart = prefs.getBoolean("autoStartTimer", false);
+        boolean shouldOpenBlockList = prefs.getBoolean("openBlockListNow", false); // <-- VERIFICĂM COMANDA NOUĂ
 
-        // Dacă am primit comanda din alt tab...
+        // Dacă am primit comanda de Timer din Setups...
         if (shouldAutoStart) {
-            // 1. Ștergem comanda ca să nu pornească la infinit de fiecare dată când intrăm
             prefs.edit().putBoolean("autoStartTimer", false).apply();
-
-            // 2. Verificăm să nu fie deja un timer activ
             if (!prefs.getBoolean("isFocusActive", false)) {
-
-                // 3. Setăm minutele primite din Setups
                 int mins = prefs.getInt("autoStartMinutes", 30);
                 selectedTimeMinutes = mins;
                 updateTimerSelectionDisplay();
-
-                // 4. Boom! Apăsăm automat butonul de Start!
                 btnStartFocus.performClick();
             }
         }
+
+        // Dacă am primit comanda "Deschide Block List" din Setups...
+        if (shouldOpenBlockList) {
+            // Ștergem comanda imediat
+            prefs.edit().putBoolean("openBlockListNow", false).apply();
+            // Deschidem fereastra cu lista de aplicații existentă!
+            openAppsBottomSheet();
+        }
     }
+
 }
